@@ -1,9 +1,16 @@
 use std::any::type_name;
 use std::any::Any;
 
+use std::collections::HashMap;
+
 pub enum Unit {
     Char,
     Word,
+}
+
+pub enum ComparisonChoice {
+    Corpus,
+    Text
 }
 
 fn print_type_of<T>(_: &T) {
@@ -12,24 +19,51 @@ fn print_type_of<T>(_: &T) {
 
 #[derive(Debug, Clone)]
 pub struct Frequency<T> {
-    vec: Vec<T>,
+    corpus: Vec<T>,
+    comparison_text: Vec<T>,
 }
 
-impl<T: Clone + Any + 'static> Frequency<T> { // Impl trait must have the derive methods included
-    pub fn new(vec: Vec<T>) -> Self{
-        Frequency::<T> {
-            vec,
+impl Frequency<char> { // Impl trait must have the derive methods included
+    pub fn new(corpus: Vec<char>, comparison_text: Vec<char>) -> Self{
+        Frequency::<char> {
+            corpus,
+            comparison_text
         }
     }
 
-    pub fn get_frequencies(&self, freq_type: Unit, include_space: bool) -> Vec<(usize, usize)> {
+    pub fn fitness(&self, freq_type: Unit, include_space: bool) -> f64{
+        let (corpus_freq, text_freq) = Self::get_frequencies(
+            &self,
+            freq_type,
+            include_space
+        );
+
+        let mut corpus_vector = Vec::new();
+        let mut text_vector = Vec::new();
+        
+        for ch in 'a'..='z' {
+            corpus_vector.push(*corpus_freq.get(&ch).unwrap_or(&0.0));
+            text_vector.push(*text_freq.get(&ch).unwrap_or(&0.0));
+        }
+
+        if include_space {
+            corpus_vector.push(*corpus_freq.get(&' ').unwrap_or(&0.0));
+            text_vector.push(*text_freq.get(&' ').unwrap_or(&0.0));
+        }
+
+        return 0.0;
+    }
+
+
+
+    pub fn get_frequencies(&self, freq_type: Unit, include_space: bool) -> (HashMap<char, f64>, HashMap<char, f64>) {
         match freq_type {
             Unit::Char => {
-                if include_space {
-                    return Vec::from(Self::get_char_frequencies::<27>(&self));
-                } else {
-                    return Vec::from(Self::get_char_frequencies::<26>(&self));
-                }
+                let comparison_choice = ComparisonChoice::Corpus;
+                let corpus_freq = Self::get_char_frequencies(&self, comparison_choice, include_space);
+                let comparison_choice = ComparisonChoice::Text;
+                let text_freq = Self::get_char_frequencies(&self, comparison_choice, include_space);
+                return (corpus_freq.unwrap_or_else(|_| HashMap::new()), text_freq.unwrap_or_else(|_| HashMap::new()));
             },
             Unit::Word => {
                 panic!("NOT IMPLEMENTED");
@@ -37,39 +71,32 @@ impl<T: Clone + Any + 'static> Frequency<T> { // Impl trait must have the derive
         }
     }
 
-    pub fn get_char_frequencies<const F_SIZE: usize>(&self) -> [(usize, usize); F_SIZE] {
-        let mut frequencies: [(usize, usize); F_SIZE] = 
-            (1..=F_SIZE) // Declares an iterator with the numbers 1 to 26 (or 27)
-                .map(|num| (num, 0)) // Converts to an iterator and to the desired form
-                .collect::<Vec<_>>() // Collects the iterator and converts to a vector
-                .try_into() // Tries to convert to an array
-                .expect("Incorrect Length"); // Error call
+    fn get_char_frequencies(&self, comparison_choice: ComparisonChoice, include_spaces: bool) -> Result<HashMap<char, f64>, std::io::Error> {
+        let mut char_counts: HashMap<char, f64> = HashMap::new(); // New hashmap containing characters with their frequency
+        let mut total_count = 0.0;
         
-        for c in self.vec.clone() {
-            if let Some(c_char) = 
-                (&c as &dyn Any) // Coercion to convert c to Any type (to prepare being casted as char)
-                    .downcast_ref::<char>() { // Cast T to a char
-                let char_num = 
-                    if F_SIZE == 27 { 
-                        Self::char_to_int(*c_char, true) 
-                    } 
-                    else { 
-                        Self::char_to_int(*c_char, false) 
-                };
+        let frequency_text = match comparison_choice {
+            ComparisonChoice::Corpus => &self.corpus,
+            ComparisonChoice::Text => &self.comparison_text
+        };
 
-                match char_num {
-                    Some(num) => {
-                        frequencies[num-1].1 += 1;
-                    },
-                    None => {},
-                }
-            } else {
-                println!("Warning: T is not a char!");
+        for ch in frequency_text {
+            let ch_lower: char = ch.to_ascii_lowercase();
+            if ch_lower.is_alphabetic() || (include_spaces && ch_lower == ' ') {
+                *char_counts.entry(ch_lower).or_insert(0.0) += 1.0;
+                total_count += 1.0;
             }
         }
-        frequencies
+        
+        let mut char_freqs = HashMap::new(); // Hashmap containing a percentage of their frequency
+        for (ch, count) in char_counts {
+            char_freqs.insert(ch, count as f64 / total_count as f64); // Finds what percentage of the text contains this char
+        }
+     
+        Ok(char_freqs)
     }
 
+    // Abandoned
     fn char_to_int(c: char, include_space: bool) -> Option<usize> {
         match c {
             'a'..='z' => {
