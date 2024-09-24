@@ -1,4 +1,4 @@
-# Website Login System 
+# Cryptography Challenge
 
 ## Description:
 To create a program which calculates how related two texts are based upon their monogram frequencies
