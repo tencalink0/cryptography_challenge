@@ -51,10 +51,27 @@ impl Frequency<char> { // Impl trait must have the derive methods included
             text_vector.push(*text_freq.get(&' ').unwrap_or(&0.0));
         }
 
-        return 0.0;
+        Self::find_fitness(&corpus_vector, &text_vector)
     }
 
-
+    fn find_fitness(vec1: &[f64], vec2: &[f64]) -> f64 {
+        let dot_product: f64 = vec1
+            .iter()
+            .zip(vec2) // Pairs each item of vec1 with vec2
+            .map(|(x, y)| x * y) // Multiplies each pair
+            .sum(); // Sums the product
+        let magnitude_vec1: f64 = vec1
+            .iter()
+            .map(|x| x * x) // Squares each value
+            .sum::<f64>() // Sums alls the squared values
+            .sqrt(); // Takes the square root of the sum
+        let magnitude_vec2: f64 = vec2.iter().map(|x| x * x).sum::<f64>().sqrt();
+    
+        if magnitude_vec1 == 0.0 || magnitude_vec2 == 0.0 {
+            return 0.0; 
+        }
+        dot_product / (magnitude_vec1 * magnitude_vec2)
+    }
 
     pub fn get_frequencies(&self, freq_type: Unit, include_space: bool) -> (HashMap<char, f64>, HashMap<char, f64>) {
         match freq_type {

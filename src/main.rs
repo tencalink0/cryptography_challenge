@@ -18,5 +18,6 @@ fn main() {
         Unit::Char,
         true,
     );
-    println!("{}", fitness);
+    let refined_fitness = fitness * (100.0 as f64);
+    println!("FITNESS: {}%", refined_fitness);
 }
